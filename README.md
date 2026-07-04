@@ -60,6 +60,34 @@ Each bank should contain numbered chord rows:
 
 Comments are allowed. The bank name can live in a comment such as `# Bank: House1`.
 
+## Included J6 Banks
+
+The `sdCard` folder contains 20 J6-style banks. Each file has 12 chords and no custom stack, wave,
+slide, or other per-bank settings.
+
+```text
+CHORD00.TXT  Oct Stack1
+CHORD01.TXT  5th Stack1
+CHORD02.TXT  Cinematic1
+CHORD03.TXT  Cinematic2
+CHORD04.TXT  EDM1
+CHORD05.TXT  EDM2
+CHORD06.TXT  EDM3
+CHORD07.TXT  EDM4
+CHORD08.TXT  House1
+CHORD09.TXT  House2
+CHORD10.TXT  House3
+CHORD11.TXT  House4
+CHORD12.TXT  Synthwave1
+CHORD13.TXT  Synthwave2
+CHORD14.TXT  Synthwave3
+CHORD15.TXT  Synthwave4
+CHORD16.TXT  Techno1
+CHORD17.TXT  Trad Maj1
+CHORD18.TXT  Trad Min1
+CHORD19.TXT  Trance1
+```
+
 ## Oxi One Setup
 
 Best tested setup:
