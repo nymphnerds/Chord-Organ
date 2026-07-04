@@ -36,13 +36,13 @@ button is pressed again.
 
 ## SD Card Banks
 
-Put chord bank files in the SD card root:
+The included bank files are in the repo's `sdCard/` directory. Copy the `CHORD*.TXT` files from
+that directory to the root of the Chord Organ SD card:
 
 ```text
-CHORD00.TXT
-CHORD01.TXT
-CHORD02.TXT
-...
+sdCard/CHORD00.TXT -> SD card root / CHORD00.TXT
+sdCard/CHORD01.TXT -> SD card root / CHORD01.TXT
+sdCard/CHORD02.TXT -> SD card root / CHORD02.TXT
 ```
 
 Files are loaded in filename order. The firmware uses the number of `CHORD*.TXT` files actually on
@@ -62,8 +62,8 @@ Comments are allowed. The bank name can live in a comment such as `# Bank: House
 
 ## Included J6 Banks
 
-The `sdCard` folder contains 20 J6-style banks. Each file has 12 chords and no custom stack, wave,
-slide, or other per-bank settings.
+The `sdCard/` directory contains these 20 J6-style banks. Each file has 12 chords and no custom
+stack, wave, slide, or other per-bank settings.
 
 ```text
 CHORD00.TXT  Oct Stack1
