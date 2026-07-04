@@ -136,15 +136,35 @@ Root knob    -> fine tuning around the CV pitch
 
 ## LED Bank Display
 
-Bank LEDs show a zero-index binary number, read left to right:
+When the chord knob changes bank, the LEDs switch from waveform display to bank display. Bank
+display is zero-indexed, so the first loaded bank is bank 0.
+
+Read the LEDs from left to right:
 
 ```text
-bank 0  0000
-bank 1  1000
-bank 2  0100
-bank 3  1100
-...
-bank 15 1111
+(O) = LED off
+(X) = LED on
+```
+
+Full bank chart:
+
+```text
+bank 0   (O)(O)(O)(O)
+bank 1   (X)(O)(O)(O)
+bank 2   (O)(X)(O)(O)
+bank 3   (X)(X)(O)(O)
+bank 4   (O)(O)(X)(O)
+bank 5   (X)(O)(X)(O)
+bank 6   (O)(X)(X)(O)
+bank 7   (X)(X)(X)(O)
+bank 8   (O)(O)(O)(X)
+bank 9   (X)(O)(O)(X)
+bank 10  (O)(X)(O)(X)
+bank 11  (X)(X)(O)(X)
+bank 12  (O)(O)(X)(X)
+bank 13  (X)(O)(X)(X)
+bank 14  (O)(X)(X)(X)
+bank 15  (X)(X)(X)(X)
 ```
 
 ## Current Calibration
