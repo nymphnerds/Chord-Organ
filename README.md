@@ -6,6 +6,30 @@ This fork keeps the Chord Organ sound engine, adds SD-card chord banks, and make
 to sequence from an Oxi One: the chord knob selects banks, the Chord CV input selects chords, and the
 Root CV input stays dedicated to pitch/root.
 
+## Quick Behaviour Guide
+
+```text
+Chord knob  Changes bank across the CHORD*.TXT files actually on the SD card
+Chord CV    Changes chord from Oxi velocity 75 upward, one chord per velocity step
+Root knob   Tunes across a smooth 1-octave range, with C centered at 12 o'clock
+Root CV     Controls root pitch at 1V/oct, using the tested range value 40
+Button      Changes waveform
+LEDs        Show waveform normally, then switch to bank display when the chord knob changes bank
+```
+
+Chord CV mapping:
+
+```text
+velocity 75 = chord 1
+velocity 76 = chord 2
+velocity 77 = chord 3
+...
+velocity 86 = chord 12
+```
+
+Bank selection follows the SD card. If the card has 4 bank files, the chord knob spans those 4
+banks. If the card has 16 bank files, the chord knob spans those 16 banks.
+
 ## Flash
 
 Flash this hex to a Teensy 3.1:
@@ -27,7 +51,7 @@ Button      Change waveform
 LEDs        Show waveform by default
 Chord knob  Select SD chord bank
 Chord CV    Select chord within the current bank
-Root knob   Smooth +/-6 semitone fine root trim
+Root knob   Smooth 1-octave fine root trim
 Root CV     Root pitch only
 ```
 
