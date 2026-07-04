@@ -14,7 +14,7 @@
 // #define CHECK_CPU
 
 #define CHORD_POT_PIN 9 // pin for Chord pot
-#define CHORD_CV_PIN 6 // pin for Chord CV 
+#define CHORD_CV_PIN 6 // pin for Chord CV
 #define ROOT_POT_PIN 7 // pin for Root Note pot
 #define ROOT_CV_PIN 8 // pin for Root Note CV
 #define RESET_BUTTON 8 // Reset button 
@@ -37,13 +37,23 @@
 
 #define SINECOUNT 8
 #define LOW_NOTE 36
+#define CHORD_CV_SLOT_COUNT 12
+#define CHORD_CV_VALUE_RANGE 88
+#define CHORD_CV_INPUT_OFFSET -7120
+#define CHORD_CV_VALUE_BASE 1
+#define MAX_ACTIVE_BANKS 16
+#define BANK_POT_MIN 384
+#define BANK_POT_MAX 7808
+#define ROOT_KNOB_OFFSET_RANGE 12
+#define ROOT_KNOB_OFFSET_CENTER 6
+#define ROOT_CV_BASE_OFFSET 24
+#define ROOT_CV_VALUE_RANGE 40
 
 // For arbitrary waveform, required but unused apparently.
 #define MAX_FREQ 600
 
 #define SHORT_PRESS_DURATION 10
-#define LONG_PRESS_DURATION 900
-#define BANK_CHANGE_DURATION 350
+#define EEPROM_WAVEFORM_ADDRESS 1234
 
 const char* settingsFileName = "CHORDORG.TXT";
 
@@ -74,8 +84,6 @@ float AMP_PER_VOICE[SINECOUNT] = {
 // Later can replace the table for custom tunings / scala support.
 float MIDI_TO_FREQ[128];
 
-int chordRaw;
-int chordRawOld;
 int chordQuant;
 int chordQuantOld;
 
@@ -84,6 +92,9 @@ int rootCVOld;
 
 int rootQuant;
 int rootQuantOld;
+int rootCVQuantOld = LOW_NOTE + ROOT_CV_BASE_OFFSET;
+float rootFineTuneMultiplier = 1.0;
+float rootFineTuneOld = 999.0;
 
 float rootMapCoeff;
 
@@ -99,12 +110,9 @@ boolean resetButton = false;
 int buttonState;
 boolean resetCVRose;
 
-elapsedMillis resetHold;
 elapsedMillis resetFlash; 
-int updateCount = 0;
 
 elapsedMillis buttonTimer = 0;
-elapsedMillis bankTimer = 0;
 elapsedMillis lockOut = 0;
 boolean shortPress = false;
 boolean longPress = false;
@@ -127,6 +135,7 @@ int waveform = 0;
 // Waveform LED
 boolean flashingWave = false;
 elapsedMillis waveformIndicatorTimer = 0;
+boolean showingBank = false;
 
 int waveformPage = 0;
 int waveformPages = 1;
@@ -168,7 +177,7 @@ boolean gliding = false;
 boolean stacked = false;
 float stackFreqScale = 1.001;
 
-int noteRange = 38;
+int noteRange = 40;
 
 // GUItool: begin automatically generated code
 
@@ -239,7 +248,7 @@ void setup() {
     SPI.setSCK(14);
 
     // Read waveform settings from EEPROM 
-    waveform = EEPROM.read(1234);
+    waveform = EEPROM.read(EEPROM_WAVEFORM_ADDRESS);
 
 #ifdef DEBUG_STARTUP
     Serial.print("Waveform from EEPROM ");
@@ -247,7 +256,6 @@ void setup() {
 #endif
 
     if (waveform < 0) waveform = 0;
-    ledWriteBank(currentBank);
     
     // OPEN SD CARD 
     boolean hasSD = openSDCard();
@@ -266,6 +274,11 @@ void setup() {
         // but they are not enabled in the config then change back to sine
         waveform = 0;
     }
+
+    int bankCount = getActiveBankCount();
+    currentBank = bankFromPot(analogRead(CHORD_POT_PIN), bankCount);
+    showingBank = false;
+    ledWrite(waveform % 4);
 
     glide = settings.glide;
     glideTime = settings.glideTime;
@@ -377,42 +390,6 @@ void loop() {
         #endif // CHECK_CPU
     }
 
-    // CHECK BUTTON STATUS 
-    resetHold = resetHold * resetButton;
-
-    if (longPress) {
-        //set the chords to the next group
-        if (bankTimer >= BANK_CHANGE_DURATION)
-        {
-            currentBank++;
-            
-            if (currentBank > (settings.chordFileCount - 1)) {
-              currentBank = 0;
-            }
-            
-            //show the LED for the current bank
-            ledWriteBank(currentBank);
-            
-            updateAmpAndFreq();
-            changed = true;
-            
-            //reset bank timer
-            bankTimer = 0;
-        }
-        
-        getAndSetButtonState();
-        //On button up, stop the long press logic
-        if (buttonState == 0)
-        {
-          updateAmpAndFreq();
-          changed = true;
-          longPress = false;
-          prevBankButton = false;
-          lockOut = 0;
-          buttonTimer = 0;
-        }
-    }
-
     if (shortPress) {
         waveform++;
         waveform = waveform % (4 * waveformPages);
@@ -452,6 +429,8 @@ void loop() {
         pinMode(RESET_CV, INPUT);
         flashing = false;  
     } 
+
+    updateStatusLEDs();
 }
 
 void updateAmpAndFreq() {
@@ -474,7 +453,7 @@ void updateAmpAndFreq() {
                 noteNumber = rootQuant + chord[i];
                 if (noteNumber < 0) noteNumber = 0;
                 if (noteNumber > 127) noteNumber = 127;
-                float newFreq = MIDI_TO_FREQ[noteNumber];
+                float newFreq = MIDI_TO_FREQ[noteNumber] * rootFineTuneMultiplier;
 
                 FREQ[i] = newFreq;
                 FREQ[i+halfSinecount] = newFreq * stackFreqScale;
@@ -494,7 +473,7 @@ void updateAmpAndFreq() {
                 noteNumber = rootQuant + chord[i];
                 if (noteNumber < 0) noteNumber = 0;
                 if (noteNumber > 127) noteNumber = 127;
-                float newFreq = MIDI_TO_FREQ[noteNumber];
+                float newFreq = MIDI_TO_FREQ[noteNumber] * rootFineTuneMultiplier;
 
                 // TODO : Allow option to choose between jump from current or new?
                 //deltaFrequency[i] = newFreq - FREQ[i];
@@ -547,7 +526,7 @@ void selectWaveform(int waveform) {
         flashingWave = true;
         waveformIndicatorTimer = 0;
     }  
-    EEPROM.write(1234, waveform);
+    EEPROM.write(EEPROM_WAVEFORM_ADDRESS, waveform);
 
     #ifdef DEBUG_MODE
     Serial.print("Waveform ");
@@ -563,6 +542,8 @@ void selectWaveform(int waveform) {
         setupCustomWaveform(waveform);    
     }
     AudioInterrupts();    
+    showingBank = false;
+    ledWrite(waveform % 4);
 }
 
 void setWaveformType(short waveformType) {
@@ -596,6 +577,23 @@ void updateWaveformLEDs() {
             }
         }
     }    
+}
+
+void showBankOnLEDs() {
+    ledWriteBank(currentBank);
+    showingBank = true;
+}
+
+void updateStatusLEDs() {
+    if (showingBank) {
+        return;
+    }
+
+    if (waveformPage > 0) {
+        updateWaveformLEDs();
+    } else {
+        ledWrite(waveform % 4);
+    }
 }
 
 void updateFrequencies() {
@@ -643,12 +641,68 @@ void ledWrite(int n) {
     digitalWrite(LED0, HIGH && (n==3)); 
 }
 
-// WRITE A 4 DIGIT BINARY NUMBER TO LED0-LED3 FOR BANK CHANGE
+int getActiveBankCount() {
+    int bankCount = settings.chordFileCount;
+    if (bankCount < 1) bankCount = MAX_ACTIVE_BANKS;
+    if (bankCount > MAX_ACTIVE_BANKS) bankCount = MAX_ACTIVE_BANKS;
+    return bankCount;
+}
+
+// Show zero-index bank number in binary, with the lowest bit on the left LED.
 void ledWriteBank(int n) {
-  digitalWrite(LED0, HIGH && (n & B00001000));
-  digitalWrite(LED1, HIGH && (n & B00000100));
+  digitalWrite(LED3, HIGH && (n & B00000001));
   digitalWrite(LED2, HIGH && (n & B00000010));
-  digitalWrite(LED3, HIGH && (n & B00000001)); 
+  digitalWrite(LED1, HIGH && (n & B00000100));
+  digitalWrite(LED0, HIGH && (n & B00001000));
+}
+
+int bankFromPot(int bankPot, int bankCount) {
+    if (bankCount <= 1) return 0;
+
+    bankPot = constrain(bankPot, BANK_POT_MIN, BANK_POT_MAX);
+    long usableRange = (long)BANK_POT_MAX - BANK_POT_MIN + 1;
+    int bank = ((long)(bankPot - BANK_POT_MIN) * bankCount) / usableRange;
+
+    if (bank >= bankCount) bank = bankCount - 1;
+    if (bank < 0) bank = 0;
+    return bank;
+}
+
+int chordFromCV(int chordCV, int chordCount) {
+    int selectableChordCount = min(chordCount, CHORD_CV_SLOT_COUNT);
+    if (selectableChordCount <= 1) return 0;
+
+    chordCV = constrain(chordCV, 0, ADC_MAX_VAL - 1);
+    chordCV = constrain(chordCV + CHORD_CV_INPUT_OFFSET, 0, ADC_MAX_VAL - 1);
+    int chord = map(chordCV, 0, ADC_MAX_VAL, 0, CHORD_CV_VALUE_RANGE);
+    chord -= CHORD_CV_VALUE_BASE;
+    if (chord >= CHORD_CV_VALUE_RANGE) chord = CHORD_CV_VALUE_RANGE - 1;
+    if (chord >= selectableChordCount) chord = selectableChordCount - 1;
+    if (chord < 0) chord = 0;
+    return chord;
+}
+
+int readAnalogSettled(int pin) {
+    return analogRead(pin);
+}
+
+void selectBank(int bank) {
+    int bankCount = getActiveBankCount();
+    if (bank >= bankCount) bank = bankCount - 1;
+    if (bank < 0) bank = 0;
+    if (bank == currentBank) return;
+
+    currentBank = bank;
+
+    int newBankChordCount = settings.numChords[currentBank];
+    if (newBankChordCount < 1) newBankChordCount = 1;
+    if (chordQuant >= newBankChordCount) {
+        chordQuant = newBankChordCount - 1;
+        chordQuantOld = chordQuant;
+    }
+
+    showBankOnLEDs();
+    changed = true;
 }
 
 void checkInterface() {
@@ -656,62 +710,48 @@ void checkInterface() {
     getAndSetButtonState();
     
     // Read pots + CVs
-    int chordPot = analogRead(CHORD_POT_PIN); 
-    int chordCV = analogRead(CHORD_CV_PIN); 
-    int rootPot = analogRead(ROOT_POT_PIN); 
-    int rootCV = analogRead(ROOT_CV_PIN); 
+    int chordPot = readAnalogSettled(CHORD_POT_PIN);
+    int chordCV = readAnalogSettled(CHORD_CV_PIN);
+    int rootPot = readAnalogSettled(ROOT_POT_PIN);
+    int rootCV = readAnalogSettled(ROOT_CV_PIN);
 
-    // Copy pots and CVs to new value 
-    chordRaw = chordPot + chordCV; 
-    chordRaw = constrain(chordRaw, 0, ADC_MAX_VAL - 1);
-
+    chordPot = constrain(chordPot, 0, ADC_MAX_VAL - 1);
+    chordCV = constrain(chordCV, 0, ADC_MAX_VAL - 1);
     rootPot = constrain(rootPot, 0, ADC_MAX_VAL - 1);
     rootCV = constrain(rootCV, 0, ADC_MAX_VAL - 1);
 
     rootChanged = false;
-    // Apply hysteresis and filtering to prevent jittery quantization 
-    // Thanks to Matthias Puech for this code 
+    int bankCount = getActiveBankCount();
+    int rootCVValue = map(rootCV, 0, ADC_MAX_VAL, 0, ROOT_CV_VALUE_RANGE);
+    if (rootCVValue >= ROOT_CV_VALUE_RANGE) rootCVValue = ROOT_CV_VALUE_RANGE - 1;
 
-    if ((chordRaw > chordRawOld + CHANGE_TOLERANCE) || (chordRaw < chordRawOld - CHANGE_TOLERANCE)) {
-        chordRawOld = chordRaw;    
-    }
-    else {
-        chordRawOld += (chordRaw - chordRawOld) >>5; 
-        chordRaw = chordRawOld;  
+    int bankQuant = bankFromPot(chordPot, bankCount);
+    if (bankQuant != currentBank) {
+        selectBank(bankQuant);
     }
 
-    // Do Pot and CV separately
-    if ((rootPot > rootPotOld + CHANGE_TOLERANCE) || (rootPot < rootPotOld - CHANGE_TOLERANCE)) {
-        rootPotOld = rootPot;
-        rootChanged = true;
-    }
-    else {
-        rootPotOld += (rootPot - rootPotOld) >>5;
-        rootPot = rootPotOld;
-    }
-    if ((rootCV > rootCVOld + CHANGE_TOLERANCE) || (rootCV < rootCVOld - CHANGE_TOLERANCE)) {
-        rootCVOld = rootCV;
-        rootChanged = true;
-    }
-    else {
-        rootCVOld += (rootCV - rootCVOld) >>5;
-        rootCV = rootCVOld;
-    }
-
-    chordQuant = map(chordRaw, 0, ADC_MAX_VAL, 0, settings.numChords[currentBank]);
+    int chordCount = settings.numChords[currentBank];
+    if (chordCount < 1) chordCount = 1;
+    chordQuant = chordFromCV(chordCV, chordCount);
     if (chordQuant != chordQuantOld) {
-        changed = true; 
-        chordQuantOld = chordQuant;    
+        changed = true;
+        chordQuantOld = chordQuant;
     }
 
-    // Map ADC reading to Note Numbers
-    int rootCVQuant = LOW_NOTE;
-    if (rootCV > rootClampLow) {
-      rootCVQuant = ((rootCV - rootClampLow) * rootMapCoeff) + LOW_NOTE + 1;
+    int rootCVQuant = LOW_NOTE + ROOT_CV_BASE_OFFSET + rootCVValue;
+    if (rootCVQuant != rootCVQuantOld) {
+        rootChanged = true;
     }
-    // Use Pot as transpose for CV
-    int rootPotQuant = map(rootPot,0,ADC_MAX_VAL,0,48);
-    rootQuant = rootCVQuant + rootPotQuant;
+    rootCVQuantOld = rootCVQuant;
+
+    float rootFineTune = (((float)rootPot / (float)(ADC_MAX_VAL - 1)) * ROOT_KNOB_OFFSET_RANGE) - ROOT_KNOB_OFFSET_CENTER;
+    if (abs(rootFineTune - rootFineTuneOld) > 0.01) {
+        rootFineTuneMultiplier = pow(2.0, rootFineTune / 12.0);
+        rootFineTuneOld = rootFineTune;
+        changed = true;
+    }
+
+    rootQuant = rootCVQuant;
     if (rootQuant != rootQuantOld) {
         changed = true; 
         rootQuantOld = rootQuant;  
@@ -730,12 +770,7 @@ void checkInterface() {
         //cancel long press
         longPress = false;
     }
-
     buttonTimer = buttonTimer * buttonState; 
-    if (buttonTimer > LONG_PRESS_DURATION) {
-        longPress = true;
-        lockOut = 0;
-    }
 
     if (!flashing) {
         resetCV.update();
@@ -790,8 +825,8 @@ void printPlaying() {
 
 }
 
-float numToFreq(int input) {
-    int number = input - 21; // set to midi note numbers = start with 21 at A0 
+float numToFreq(float input) {
+    float number = input - 21; // set to midi note numbers = start with 21 at A0
     number = number - 48; // A0 is 48 steps below A4 = 440hz
     return 440*(pow (1.059463094359,number));
 }

@@ -19,7 +19,7 @@ class Settings {
     boolean extraWaves = false;
     boolean glide = false;
     int glideTime = 50;
-    uint8_t noteRange = 38;
+    uint8_t noteRange = 40;
     int numChords[16] = {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15};
     int16_t chordBanks[16][16][8];
     int chordFileCount = 0;

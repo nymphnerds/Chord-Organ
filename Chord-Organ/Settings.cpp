@@ -3,14 +3,18 @@
 
 //#define DEBUG_CHORDS
 
+#define MAX_CHORD_BANKS 16
+#define MAX_CHORD_FILES_TO_SCAN 32
+
 Settings::Settings(const char* filename) {
   //create an array of filenames, detect them in the SD card
 	_filename = filename;
 }
 
 void Settings::init(boolean hasSD) {
+    chordFileCount = 0;
   //init chord bank values
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < MAX_CHORD_BANKS; i++) {
       for (int j = 0; j < 16; j++) {
         for (int k = 0; k < 8; k++) {
           chordBanks[i][j][k] = 255;
@@ -39,46 +43,65 @@ void Settings::init(boolean hasSD) {
 }
 
 boolean Settings::scanDirectory(File dir) {
-  boolean anyChordFilesFound = false;
+  char chordFiles[MAX_CHORD_FILES_TO_SCAN][32];
+  int foundFileCount = 0;
+
   while(true) {
     File entry =  dir.openNextFile();
     if (!entry) {
       // no more files
-      return anyChordFilesFound;
+      break;
     }
     String fileName = (String)entry.name();
     entry.close();
-    char fn[sizeof(fileName)];
-    fileName.trim().toCharArray(fn, sizeof(fn));
-    boolean checkExt = fileName.endsWith(".TXT");
-    boolean checkName = fileName.startsWith("CHORD");
+    fileName.trim();
 
-    if (checkExt && checkName) {
+    String normalizedName = fileName;
+    normalizedName.toUpperCase();
+
+    boolean checkExt = normalizedName.endsWith(".TXT");
+    boolean checkName = normalizedName.startsWith("CHORD");
+    boolean checkConfig = normalizedName.equals(_filename);
+
+    if (checkExt && checkName && !checkConfig && foundFileCount < MAX_CHORD_FILES_TO_SCAN) {
       
       #ifdef DEBUG_CHORDS
       Serial.print("Chord file found!: ");
       Serial.println(fileName);
       #endif
       
-      anyChordFilesFound = true;
-      
-      if (chordFileCount > 15) {
-        //stop scanning if the file number is out of bounds
-        return anyChordFilesFound;
-      }    
-      
-      #ifdef DEBUG_CHORDS
-      Serial.print("Total Banks: ");
-      Serial.println(chordFileCount);
-      #endif
-      
-      //parse the current file, put it into the bank defined by chordFileCount
-      read(fn);
-      chordFileCount++;
+      fileName.toCharArray(chordFiles[foundFileCount], sizeof(chordFiles[foundFileCount]));
+      foundFileCount++;
     }
-      
   }
-  return anyChordFilesFound;
+
+  for (int i = 0; i < foundFileCount - 1; i++) {
+    for (int j = i + 1; j < foundFileCount; j++) {
+      if (strcmp(chordFiles[i], chordFiles[j]) > 0) {
+        char temp[32];
+        strcpy(temp, chordFiles[i]);
+        strcpy(chordFiles[i], chordFiles[j]);
+        strcpy(chordFiles[j], temp);
+      }
+    }
+  }
+
+  int filesToLoad = foundFileCount;
+  if (filesToLoad > MAX_CHORD_BANKS) filesToLoad = MAX_CHORD_BANKS;
+
+  for (int i = 0; i < filesToLoad; i++) {
+    #ifdef DEBUG_CHORDS
+    Serial.print("Loading bank ");
+    Serial.print(chordFileCount);
+    Serial.print(": ");
+    Serial.println(chordFiles[i]);
+    #endif
+
+    read(chordFiles[i]);
+    chordFileCount++;
+  }
+
+  return foundFileCount > 0;
 }
 
 void Settings::copyDefaults() {

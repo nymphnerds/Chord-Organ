@@ -1,0 +1,135 @@
+# Chord Organ CV Banks
+
+Custom firmware for Music Thing Modular Chord Organ / Radio Music hardware on Teensy 3.1.
+
+This fork keeps the Chord Organ sound engine, adds SD-card chord banks, and makes the module easier
+to sequence from an Oxi One: the chord knob selects banks, the Chord CV input selects chords, and the
+Root CV input stays dedicated to pitch/root.
+
+## Flash
+
+Flash this hex to a Teensy 3.1:
+
+```text
+Collateral/Hex File/Chord-Organ.ino.hex
+```
+
+Latest tested SHA256:
+
+```text
+a394afb6c8649be0db186c187231ad80bb1662881cf405a7205ae2e34ae9b7a1
+```
+
+## Controls
+
+```text
+Button      Change waveform
+LEDs        Show waveform by default
+Chord knob  Select SD chord bank
+Chord CV    Select chord within the current bank
+Root knob   Smooth +/-6 semitone fine root trim
+Root CV     Root pitch only
+```
+
+When the chord knob changes bank, the LEDs switch to bank display and stay there until the waveform
+button is pressed again.
+
+## SD Card Banks
+
+Put chord bank files in the SD card root:
+
+```text
+CHORD00.TXT
+CHORD01.TXT
+CHORD02.TXT
+...
+```
+
+Files are loaded in filename order. The firmware uses the number of `CHORD*.TXT` files actually on
+the card, up to 16 banks, so 4 files gives 4 wide knob zones and 16 files gives 16 zones.
+
+Each bank should contain numbered chord rows:
+
+```text
+# Bank: House1
+01 [3,-2,-5,-12] Cm7
+02 [4,-1,-4,-11] C#m7
+...
+12 [2,-3,-7,-13] Bm7b5
+```
+
+Comments are allowed. The bank name can live in a comment such as `# Bank: House1`.
+
+## Oxi One Setup
+
+Best tested setup:
+
+```text
+Oxi velocity lane -> Chord CV input
+Velocity mode     -> Not Gated
+Velocity 75       -> chord 1
+Velocity 76       -> chord 2
+...
+Velocity 86       -> chord 12
+```
+
+This gives one velocity step per chord, which is fast and easy to program.
+
+Root/pitch stays separate:
+
+```text
+Oxi pitch CV -> Root CV input
+Root knob    -> fine tuning around the CV pitch
+```
+
+## LED Bank Display
+
+Bank LEDs show a zero-index binary number, read left to right:
+
+```text
+bank 0  0000
+bank 1  1000
+bank 2  0100
+bank 3  1100
+...
+bank 15 1111
+```
+
+## Current Calibration
+
+The keeper chord CV calibration from hardware testing:
+
+```cpp
+#define CHORD_CV_SLOT_COUNT 12
+#define CHORD_CV_VALUE_RANGE 88
+#define CHORD_CV_INPUT_OFFSET -7120
+#define CHORD_CV_VALUE_BASE 1
+```
+
+Pitch/root calibration:
+
+```cpp
+#define ROOT_CV_VALUE_RANGE 40
+#define ROOT_CV_BASE_OFFSET 24
+#define ROOT_KNOB_OFFSET_RANGE 12
+#define ROOT_KNOB_OFFSET_CENTER 6
+```
+
+The CV reads are direct and deliberately unsmoothed for snappy modular sequencing.
+
+## Source Notes
+
+The sketch lives in:
+
+```text
+Chord-Organ/Chord-Organ.ino
+```
+
+Build target:
+
+```text
+teensy:avr:teensy31
+```
+
+This firmware is based on the Chord Organ / Radio Music hardware family by Tom Whitwell and the
+ChordBanks work from starmandeluxe.

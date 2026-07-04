@@ -1,6 +1,3 @@
-
-Chord-Organ/\.cproject
-
-Chord-Organ/\.ino\.cpp
-
-Chord-Organ/\.project
+Chord-Organ/build/
+DOCS/forum/
+*:Zone.Identifier
