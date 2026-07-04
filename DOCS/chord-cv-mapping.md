@@ -82,11 +82,11 @@ Examples:
 
 `CHORDORG.TXT` is ignored by the bank loader.
 
-The knob is mapped across a narrowed ADC range to make the ends easier to reach:
+The knob uses the full ADC span, with no deliberately wasted range:
 
 ```cpp
-#define BANK_POT_MIN 384
-#define BANK_POT_MAX 7808
+#define BANK_POT_MIN 0
+#define BANK_POT_MAX (ADC_MAX_VAL - 1)
 ```
 
 On startup, the firmware reads the physical chord knob for the initial bank. This means the apparent
@@ -96,19 +96,20 @@ bank is naturally sticky across reboot if the knob has not moved.
 
 Startup defaults to waveform LED view.
 
-When the chord knob selects a bank, LEDs show the bank index in zero-index binary and stay in bank
-view until the waveform button is pressed.
+When the chord knob selects a bank, LEDs show the bank in binary and stay in bank view until the
+waveform button is pressed. User-facing bank numbers are 1-based: Bank 1 is all LEDs off, and the
+first knob-zone change goes to Bank 2.
 
 LED order is left to right:
 
 ```text
-bank 0  = 0000
-bank 1  = 1000
-bank 2  = 0100
-bank 3  = 1100
-bank 4  = 0010
+Bank 1  = 0000
+Bank 2  = 1000
+Bank 3  = 0100
+Bank 4  = 1100
+Bank 5  = 0010
 ...
-bank 15 = 1111
+Bank 16 = 1111
 ```
 
 ## Root CV And Root Knob

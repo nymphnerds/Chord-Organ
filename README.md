@@ -136,8 +136,8 @@ Root knob    -> fine tuning around the CV pitch
 
 ## LED Bank Display
 
-When the chord knob changes bank, the LEDs switch from waveform display to bank display. Bank
-display is zero-indexed, so the first loaded bank is bank 0.
+When the chord knob changes bank, the LEDs switch from waveform display to bank display. The first
+loaded bank is Bank 1 and shows all LEDs off. The next knob zone is Bank 2.
 
 Read the LEDs from left to right:
 
@@ -149,22 +149,22 @@ Read the LEDs from left to right:
 Full bank chart:
 
 ```text
-bank 0   (O)(O)(O)(O)
-bank 1   (X)(O)(O)(O)
-bank 2   (O)(X)(O)(O)
-bank 3   (X)(X)(O)(O)
-bank 4   (O)(O)(X)(O)
-bank 5   (X)(O)(X)(O)
-bank 6   (O)(X)(X)(O)
-bank 7   (X)(X)(X)(O)
-bank 8   (O)(O)(O)(X)
-bank 9   (X)(O)(O)(X)
-bank 10  (O)(X)(O)(X)
-bank 11  (X)(X)(O)(X)
-bank 12  (O)(O)(X)(X)
-bank 13  (X)(O)(X)(X)
-bank 14  (O)(X)(X)(X)
-bank 15  (X)(X)(X)(X)
+Bank 1   (O)(O)(O)(O)
+Bank 2   (X)(O)(O)(O)
+Bank 3   (O)(X)(O)(O)
+Bank 4   (X)(X)(O)(O)
+Bank 5   (O)(O)(X)(O)
+Bank 6   (X)(O)(X)(O)
+Bank 7   (O)(X)(X)(O)
+Bank 8   (X)(X)(X)(O)
+Bank 9   (O)(O)(O)(X)
+Bank 10  (X)(O)(O)(X)
+Bank 11  (O)(X)(O)(X)
+Bank 12  (X)(X)(O)(X)
+Bank 13  (O)(O)(X)(X)
+Bank 14  (X)(O)(X)(X)
+Bank 15  (O)(X)(X)(X)
+Bank 16  (X)(X)(X)(X)
 ```
 
 ## Current Calibration
@@ -181,6 +181,8 @@ The keeper chord CV calibration from hardware testing:
 Pitch/root calibration:
 
 ```cpp
+#define BANK_POT_MIN 0
+#define BANK_POT_MAX (ADC_MAX_VAL - 1)
 #define ROOT_CV_VALUE_RANGE 40
 #define ROOT_CV_BASE_OFFSET 24
 #define ROOT_KNOB_OFFSET_RANGE 12
